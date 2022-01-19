@@ -99,11 +99,13 @@ var grTransitions = map[[2]int][3]int{
 // woman) and the rules described in Annex #29 must be applied to group those
 // code points into clusters perceived by the user as one character.
 type Graphemes struct {
+	runeLength int
+
 	// The code points over which this class iterates.
 	codePoints []rune
 
 	// The (byte-based) indices of the code points into the original string plus
-	// len(original string). Thus, len(indices) = len(codePoints) + 1.
+	// len(original string).
 	indices []int
 
 	// The current grapheme cluster to be returned. These are indices into
@@ -123,6 +125,12 @@ func NewGraphemes(s string) *Graphemes {
 	l := utf8.RuneCountInString(s)
 	codePoints := make([]rune, l)
 	indices := make([]int, l+1)
+
+	return NewGraphemesWithStorage(s, codePoints, indices)
+}
+
+func NewGraphemesWithStorage(s string, codePoints []rune, indices []int) *Graphemes {
+	l := utf8.RuneCountInString(s)
 	i := 0
 	for pos, r := range s {
 		codePoints[i] = r
@@ -131,6 +139,7 @@ func NewGraphemes(s string) *Graphemes {
 	}
 	indices[l] = len(s)
 	g := &Graphemes{
+		runeLength: l,
 		codePoints: codePoints,
 		indices:    indices,
 	}
@@ -148,9 +157,9 @@ func (g *Graphemes) Next() bool {
 	// point so we always need to stay ahead by one code point.
 
 	// Parse the next code point.
-	for g.pos <= len(g.codePoints) {
+	for g.pos <= g.runeLength {
 		// GB2.
-		if g.pos == len(g.codePoints) {
+		if g.pos == g.runeLength {
 			g.end = g.pos
 			g.pos++
 			break
