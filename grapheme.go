@@ -1,6 +1,8 @@
 package uniseg
 
-import "unicode/utf8"
+import (
+	"unicode/utf8"
+)
 
 // The states of the grapheme cluster parser.
 const (
@@ -126,25 +128,53 @@ func NewGraphemes(s string) *Graphemes {
 	codePoints := make([]rune, l)
 	indices := make([]int, l+1)
 
-	return NewGraphemesWithStorage(s, codePoints, indices)
+	g := NewGraphemesWithStorage(codePoints, indices)
+	g.startString(s)
+	return g
 }
 
-func NewGraphemesWithStorage(s string, codePoints []rune, indices []int) *Graphemes {
-	l := utf8.RuneCountInString(s)
-	i := 0
-	for pos, r := range s {
-		codePoints[i] = r
-		indices[i] = pos
-		i++
-	}
-	indices[l] = len(s)
-	g := &Graphemes{
-		runeLength: l,
+func NewGraphemesWithStorage(codePoints []rune, indices []int) *Graphemes {
+	return &Graphemes{
 		codePoints: codePoints,
 		indices:    indices,
 	}
+}
+
+func (g *Graphemes) startString(s string) {
+	g.Reset()
+
+	l := utf8.RuneCountInString(s)
+	i := 0
+	for pos, r := range s {
+		g.codePoints[i] = r
+		g.indices[i] = pos
+		i++
+	}
+	g.indices[l] = len(s)
+	g.runeLength = l
 	g.Next() // Parse ahead.
-	return g
+}
+
+func (g *Graphemes) StartBytes(bytes []byte) {
+	g.Reset()
+
+	runeIdx := 0
+	pos := 0
+	for {
+		r, size := utf8.DecodeRune(bytes[pos:])
+		if size == 0 {
+			break
+		}
+		g.codePoints[runeIdx] = r
+		g.indices[runeIdx] = pos
+		pos += size
+		runeIdx++
+	}
+
+	g.indices[runeIdx] = len(bytes)
+
+	g.runeLength = runeIdx + 1
+	g.Next() // Parse ahead.
 }
 
 // Next advances the iterator by one grapheme cluster and returns false if no
