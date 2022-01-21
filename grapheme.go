@@ -124,39 +124,43 @@ type Graphemes struct {
 
 // NewGraphemes returns a new grapheme cluster iterator.
 func NewGraphemes(s string) *Graphemes {
-	l := utf8.RuneCountInString(s)
-	codePoints := make([]rune, l)
-	indices := make([]int, l+1)
-
-	g := NewGraphemesWithStorage(codePoints, indices)
-	g.startString(s)
+	g := NewGraphemesWithStorage(utf8.RuneCountInString(s))
+	g.StartString(s)
 	return g
 }
 
-func NewGraphemesWithStorage(codePoints []rune, indices []int) *Graphemes {
+func NewGraphemesWithStorage(initialSize int) *Graphemes {
 	return &Graphemes{
-		codePoints: codePoints,
-		indices:    indices,
+		codePoints: make([]rune, initialSize),
+		indices:    make([]int, initialSize+1),
 	}
 }
 
-func (g *Graphemes) startString(s string) {
-	g.Reset()
+func (g *Graphemes) StartString(s string) {
+	g.runeLength = utf8.RuneCountInString(s)
+	if g.runeLength > len(g.codePoints) {
+		// reallocate
+		g.codePoints = make([]rune, g.runeLength)
+		g.indices = make([]int, g.runeLength+1)
+	}
 
-	l := utf8.RuneCountInString(s)
 	i := 0
 	for pos, r := range s {
 		g.codePoints[i] = r
 		g.indices[i] = pos
 		i++
 	}
-	g.indices[l] = len(s)
-	g.runeLength = l
-	g.Next() // Parse ahead.
+	g.indices[i] = len(s)
+	g.Reset()
 }
 
 func (g *Graphemes) StartBytes(bytes []byte) {
-	g.Reset()
+	g.runeLength = utf8.RuneCount(bytes)
+	if g.runeLength > len(g.codePoints) {
+		// reallocate larger
+		g.codePoints = make([]rune, g.runeLength)
+		g.indices = make([]int, g.runeLength+1)
+	}
 
 	runeIdx := 0
 	pos := 0
@@ -171,10 +175,8 @@ func (g *Graphemes) StartBytes(bytes []byte) {
 		runeIdx++
 	}
 
-	g.indices[runeIdx] = len(bytes)
-
-	g.runeLength = runeIdx + 1
-	g.Next() // Parse ahead.
+	g.indices[g.runeLength] = len(bytes)
+	g.Reset()
 }
 
 // Next advances the iterator by one grapheme cluster and returns false if no
